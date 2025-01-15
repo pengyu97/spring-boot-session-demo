@@ -1,0 +1,35 @@
+@startuml
+participant SessionRepositoryFilter
+participant SessionRepositoryRequestWrapper
+participant RedisOperationsSessionRepository
+participant RedisSession
+participant CookieHttpSessionIdResolver
+
+autonumber
+activate SessionRepositoryFilter
+SessionRepositoryFilter -> SessionRepositoryFilter: 调用doFilterInternal方法(设置session的总入口)
+SessionRepositoryFilter -> SessionRepositoryRequestWrapper: 调用getSession()方法
+activate SessionRepositoryRequestWrapper
+note right: 通过责任链调用doFilter方法，\n并最终调用到getSession(true)方法
+SessionRepositoryRequestWrapper -> SessionRepositoryRequestWrapper: 调用getSession(true)方法
+SessionRepositoryRequestWrapper -> RedisOperationsSessionRepository: 调用createSession方法生成session
+activate RedisOperationsSessionRepository
+RedisOperationsSessionRepository -> RedisSession: 实例化一个RedisSession对象，\n该对象包括了session的所有信息,\n其中sessionid是通过MapSession的\ngenerateId方法生成的。
+activate RedisSession
+RedisSession -->RedisOperationsSessionRepository: 返回生成的RedisSession对象
+deactivate RedisSession
+RedisOperationsSessionRepository --> SessionRepositoryRequestWrapper:返回生成的RedisSession对象
+deactivate RedisOperationsSessionRepository
+SessionRepositoryRequestWrapper--> SessionRepositoryRequestWrapper: 返回实例化后的HttpSessionWrapper对象
+SessionRepositoryFilter -> SessionRepositoryRequestWrapper: 调用commitSession方法
+SessionRepositoryRequestWrapper -> HttpSessionWrapper: 调用getSession()方法\n获取前面生成的RedisSession对象
+SessionRepositoryRequestWrapper -> RedisOperationsSessionRepository: 调用save(session)方法\n将session信息保存到redis中
+SessionRepositoryRequestWrapper -> CookieHttpSessionIdResolver: 调用setSessionId方法\n将sessionId保存到cookie中。
+activate CookieHttpSessionIdResolver
+CookieHttpSessionIdResolver -> DefaultCookieSerializer: 调用writeCookieValue将\nsessionid写入cookie中。\n这个方法还会写入其他的cookie属性，\n例如Path等。
+activate DefaultCookieSerializer
+deactivate DefaultCookieSerializer
+deactivate CookieHttpSessionIdResolver
+deactivate SessionRepositoryRequestWrapper
+deactivate SessionRepositoryFilter
+@enduml

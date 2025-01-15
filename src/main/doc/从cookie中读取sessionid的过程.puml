@@ -1,0 +1,31 @@
+@startuml
+participant SessionRepositoryFilter
+participant SessionRepositoryRequestWrapper
+participant CookieHttpSessionIdResolver
+participant RedisOperationsSessionRepository
+participant DefaultCookieSerializer
+
+autonumber
+activate SessionRepositoryFilter
+SessionRepositoryFilter -> SessionRepositoryFilter: 调用doFilterInternal方法(设置session的总入口)
+SessionRepositoryFilter -> SessionRepositoryRequestWrapper: 调用getSession()方法
+activate SessionRepositoryRequestWrapper
+note right: 通过责任链调用doFilter方法，\n并最终调用到getSession(true)方法
+SessionRepositoryRequestWrapper -> SessionRepositoryRequestWrapper: 调用getSession(true)方法
+SessionRepositoryRequestWrapper -> SessionRepositoryRequestWrapper: 调用getRequestedSession()方法
+SessionRepositoryRequestWrapper -> CookieHttpSessionIdResolver: 调用resolveSessionIds(this)查找sessionId
+activate CookieHttpSessionIdResolver
+CookieHttpSessionIdResolver ->DefaultCookieSerializer:调用readCookieValues方法，从cookie中获取sessionid
+activate DefaultCookieSerializer
+DefaultCookieSerializer -->CookieHttpSessionIdResolver:返回获取到的sessionid
+deactivate DefaultCookieSerializer
+CookieHttpSessionIdResolver --> SessionRepositoryRequestWrapper: 返回获取到的sessionId
+deactivate CookieHttpSessionIdResolver
+SessionRepositoryRequestWrapper -> RedisOperationsSessionRepository: 调用findById(sessionId)，\n根据获取到的sessionid获取Session
+activate RedisOperationsSessionRepository
+RedisOperationsSessionRepository --> SessionRepositoryRequestWrapper:返回HttpSession
+deactivate RedisOperationsSessionRepository
+SessionRepositoryRequestWrapper --> SessionRepositoryFilter:返回HttpSession
+deactivate SessionRepositoryRequestWrapper
+deactivate SessionRepositoryFilter
+@enduml
